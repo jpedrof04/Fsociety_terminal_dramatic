@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>fsociety</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
+
+  body {
+    background: #0a0a0a;
+    font-family: 'Share Tech Mono', monospace;
+    height: 100vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    color: #66ddff;
+  }
+
+  #overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 10;
+    background:
+      repeating-linear-gradient(
+        0deg,
+        rgba(0,0,0,0.03) 0px,
+        rgba(0,0,0,0.03) 1px,
+        transparent 1px,
+        transparent 3px
+      );
+  }
+
+  #scanline {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 2px;
+    background: rgba(102, 221, 255, 0.08);
+    box-shadow: 0 0 10px rgba(102, 221, 255, 0.3);
+    z-index: 11;
+    animation: scanMove 4s linear infinite;
+  }
+
+  @keyframes scanMove {
+    0% { top: 0; }
+    100% { top: 100%; }
+  }
+
+  #glitch-line {
+    position: fixed;
+    left: 0; width: 100%; height: 3px;
+    background: rgba(102, 221, 255, 0.6);
+    box-shadow: 0 0 20px #66ddff;
+    z-index: 12;
+    opacity: 0;
+    pointer-events: none;
+  }
+
+  #status-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    padding: 6px 20px;
+    background: #0d0d0d;
+    border-bottom: 1px solid #1a3a4a;
+    z-index: 5;
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    color: #ffffff;
+    text-shadow: 0 0 8px rgba(102,221,255,0.4);
+  }
+
+  #status-bar .left span {
+    margin-right: 30px;
+  }
+
+  #status-bar .right {
+    color: #ff3333;
+    text-shadow: 0 0 8px rgba(255,51,51,0.4);
+  }
+
+  #header {
+    position: fixed;
+    top: 35px;
+    left: 0;
+    width: 100%;
+    padding: 15px 20px;
+    background: #0a0a0a;
+    border-bottom: 1px solid #1a3a4a;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  #header .logo {
+    font-size: 14px;
+    color: #ffffff;
+    text-shadow: 0 0 15px rgba(102,221,255,0.6);
+    letter-spacing: 3px;
+  }
+
+  #header .logo .blink {
+    animation: blink 1s step-end infinite;
+  }
+
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+  }
+
+  #header .target-info {
+    color: #ff3333;
+    font-size: 12px;
+    text-shadow: 0 0 10px rgba(255,51,51,0.4);
+  }
+
+  #header .target-info .ip {
+    color: #ffffff;
+  }
+
+  #progress-container {
+    position: fixed;
+    top: 80px;
+    left: 0;
+    width: 100%;
+    padding: 10px 20px;
+    background: #0d0d0d;
+    border-bottom: 1px solid #1a3a4a;
+    z-index: 5;
+  }
+
+  #progress-bar-bg {
+    width: 100%;
+    height: 18px;
+    background: #111;
+    border: 1px solid #1a3a4a;
+    position: relative;
+    overflow: hidden;
+  }
+
+  #progress-bar {
+    height: 100%;
+    width: 0%;
+    background: linear-gradient(90deg, #1a3a4a, #66ddff);
+    box-shadow: 0 0 20px rgba(102,221,255,0.3);
+    transition: width 0.3s;
+  }
+
+  #progress-text {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 11px;
+    color: #ffffff;
+    text-shadow: 0 0 8px rgba(102,221,255,0.5);
+    letter-spacing: 2px;
+  }
+
+  #stats {
+    position: fixed;
+    top: 118px;
+    left: 0;
+    width: 100%;
+    padding: 8px 20px;
+    background: #0a0a0a;
+    border-bottom: 1px solid #1a3a4a;
+    z-index: 5;
+    display: flex;
+    gap: 40px;
+    font-size: 11px;
+    color: #ffffff;
+  }
+
+  #stats .stat .value {
+    color: #ff3333;
+    font-weight: bold;
+    text-shadow: 0 0 10px rgba(255,51,51,0.4);
+  }
+
+  #terminal {
+    position: fixed;
+    top: 158px;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    padding: 10px 20px 20px;
+    overflow-y: auto;
+    background: #0a0a0a;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+
+  #terminal::-webkit-scrollbar {
+    width: 6px;
+  }
+
+  #terminal::-webkit-scrollbar-track {
+    background: #0a0a0a;
+  }
+
+  #terminal::-webkit-scrollbar-thumb {
+    background: #1a3a4a;
+    border-radius: 3px;
+  }
+
+  #terminal .log-line {
+    white-space: pre-wrap;
+    word-break: break-all;
+    opacity: 0;
+    animation: fadeInLine 0.05s forwards;
+  }
+
+  @keyframes fadeInLine {
+    to { opacity: 1; }
+  }
+
+  .log-line .timestamp {
+    color: #5577aa;
+  }
+
+  .log-line .info {
+    color: #99ddff;
+  }
+
+  .log-line .warn {
+    color: #ffff33;
+    text-shadow: 0 0 5px rgba(255,255,51,0.3);
+  }
+
+  .log-line .error {
+    color: #ff3333;
+    text-shadow: 0 0 8px rgba(255,51,51,0.4);
+  }
+
+  .log-line .success {
+    color: #ffffff;
+    text-shadow: 0 0 8px rgba(102,221,255,0.4);
+  }
+
+  .log-line .highlight {
+    color: #ffffff;
+    text-shadow: 0 0 10px rgba(255,255,255,0.3);
+  }
+
+  .log-line .dim {
+    color: #335566;
+  }
+
+  .log-line .ip-addr {
+    color: #ff6633;
+    text-shadow: 0 0 5px rgba(255,102,51,0.3);
+  }
+
+  .log-line .port {
+    color: #66ccff;
+  }
+
+  .log-line .protocol {
+    color: #cc66ff;
+  }
+
+  .log-line .packet {
+    color: #ffcc00;
+    text-shadow: 0 0 5px rgba(255,204,0,0.3);
+  }
+
+  .log-line .system {
+    color: #ff66aa;
+    text-shadow: 0 0 5px rgba(255,102,170,0.3);
+  }
+
+  #footer {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: 6px 20px;
+    background: #0d0d0d;
+    border-top: 1px solid #1a3a4a;
+    z-index: 5;
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #335566;
+  }
+
+  #typing-cursor {
+    display: inline;
+    animation: blink 0.8s step-end infinite;
+  }
+
+  .glitch {
+    animation: glitchText 0.1s ease-in-out;
+  }
+
+  @keyframes glitchText {
+    0% { transform: translate(0); }
+    20% { transform: translate(-2px, 1px); }
+    40% { transform: translate(2px, -1px); }
+    60% { transform: translate(-1px, 2px); }
+    80% { transform: translate(1px, -2px); }
+    100% { transform: translate(0); }
+  }
+
+  .noise {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 9;
+    opacity: 0.015;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+    background-size: 256px 256px;
+  }
+
+  @keyframes pulseBorder {
+    0%, 100% { border-color: #1a3a4a; }
+    50% { border-color: #66ddff; }
+  }
+
+  .flash-red {
+    animation: flashRed 0.15s ease-out;
+  }
+
+  @keyframes flashRed {
+    0% { background-color: rgba(255,0,0,0.15); }
+    100% { background-color: transparent; }
+  }
+
+  #matrix-rain {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    pointer-events: none;
+    z-index: 0;
+    opacity: 0.04;
+  }
+
+  /* ===== FLOATING TERMINAL ===== */
+  #float-term {
+    position: fixed;
+    bottom: 40px;
+    right: 20px;
+    width: 480px;
+    height: 340px;
+    background: #0a0a0a;
+    border: 1px solid #1a3a4a;
+    box-shadow: 0 0 40px rgba(102,221,255,0.08), 0 0 80px rgba(0,0,0,0.8);
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    font-size: 12px;
+    resize: both;
+    overflow: hidden;
+    min-width: 280px;
+    min-height: 180px;
+    animation: floatIn 0.4s ease-out;
+  }
+
+  @keyframes floatIn {
+    from {
+      opacity: 0;
+      transform: scale(0.85) translateY(30px);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1) translateY(0);
+    }
+  }
+
+  #float-term-title {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 10px;
+    background: #0d0d0d;
+    border-bottom: 1px solid #1a3a4a;
+    cursor: move;
+    user-select: none;
+    flex-shrink: 0;
+  }
+
+  #float-term-title .label {
+    font-size: 11px;
+    color: #66ddff;
+    text-shadow: 0 0 6px rgba(102,221,255,0.3);
+    letter-spacing: 1px;
+  }
+
+  #float-term-title .label .dot {
+    display: inline-block;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    margin-right: 6px;
+    background: #66ddff;
+    box-shadow: 0 0 6px #66ddff;
+    animation: blink 1.2s step-end infinite;
+  }
+
+  #float-term-title .actions {
+    display: flex;
+    gap: 6px;
+  }
+
+  #float-term-title .actions button {
+    background: none;
+    border: 1px solid #1a3a4a;
+    color: #335566;
+    font-size: 10px;
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    font-family: inherit;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: 0.15s;
+  }
+
+  #float-term-title .actions button:hover {
+    color: #66ddff;
+    border-color: #66ddff;
+  }
+
+  #float-term-title .actions .close-btn:hover {
+    color: #ff3333;
+    border-color: #ff3333;
+  }
+
+  #float-term-output {
+    flex: 1;
+    overflow-y: auto;
+    padding: 6px 10px;
+    font-size: 11px;
+    line-height: 1.6;
+    background: #080808;
+  }
+
+  #float-term-output::-webkit-scrollbar {
+    width: 4px;
+  }
+  #float-term-output::-webkit-scrollbar-track {
+    background: #080808;
+  }
+  #float-term-output::-webkit-scrollbar-thumb {
+    background: #1a3a4a;
+    border-radius: 2px;
+  }
+
+  #float-term-output .flog {
+    white-space: pre-wrap;
+    word-break: break-all;
+    opacity: 0;
+    animation: fadeInLine 0.08s forwards;
+  }
+
+  #float-term-output .flog .fpre {
+    color: #5577aa;
+  }
+
+  #float-term-output .flog .fcmd {
+    color: #ffcc00;
+    text-shadow: 0 0 4px rgba(255,204,0,0.25);
+  }
+
+  #float-term-output .flog .fout {
+    color: #66ddff;
+  }
+
+  #float-term-output .flog .ferr {
+    color: #ff3333;
+  }
+
+  #float-term-output .flog .fwarn {
+    color: #ffff33;
+  }
+
+  #float-term-output .flog .fsys {
+    color: #ff66aa;
+  }
+
+  #float-term-input-line {
+    display: flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-top: 1px solid #1a3a4a;
+    background: #0a0a0a;
+    flex-shrink: 0;
+  }
+
+  #float-term-input-line .prompt {
+    color: #ff3333;
+    margin-right: 6px;
+    font-size: 11px;
+    text-shadow: 0 0 4px rgba(255,51,51,0.2);
+  }
+
+  #float-term-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    outline: none;
+    color: #66ddff;
+    font-family: 'Share Tech Mono', monospace;
+    font-size: 11px;
+    caret-color: #66ddff;
+  }
+
+  #float-term-input::placeholder {
+    color: #1a3a4a;
+  }
+
+  #float-term-status {
+    display: flex;
+    justify-content: space-between;
+    padding: 3px 10px;
+    font-size: 9px;
+    color: #335566;
+    border-top: 1px solid #111;
+    flex-shrink: 0;
+    background: #080808;
+  }
+
+  @media (max-width: 768px) {
+    #stats { gap: 10px; font-size: 9px; flex-wrap: wrap; }
+    #status-bar { font-size: 10px; }
+    #header .logo { font-size: 11px; }
+    #terminal { font-size: 10px; top: 190px; }
+    #progress-container { top: 80px; }
+    #stats { top: 138px; }
+    #terminal { top: 178px; }
+    #float-term {
+      width: 90vw;
+      right: 5vw;
+      bottom: 40px;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div id="overlay"></div>
+<div id="scanline"></div>
+<div id="glitch-line"></div>
+<div class="noise"></div>
+<canvas id="matrix-rain"></canvas>
+
+<div id="status-bar">
+  <div class="left">
+    <span>fsociety terminal v3.1.7</span>
+    <span id="conn-status">CONNECTION: <span style="color:#ffffff">ESTABLISHED</span></span>
+  </div>
+  <div class="right" id="status-time">00:00:00</div>
+</div>
+
+<div id="header">
+  <div class="logo">
+    <span style="color:#ff3333">fsociety</span>:// <span id="typed-command" class="blink">_</span>
+  </div>
+  <div class="target-info">
+    TARGET: <span class="ip" id="target-ip">192.168.1.105</span> | PORT: <span id="target-port">80</span> | PROTOCOL: <span id="target-proto">TCP</span>
+  </div>
+</div>
+
+<div id="progress-container">
+  <div id="progress-bar-bg">
+    <div id="progress-bar"></div>
+    <div id="progress-text">ATTACK PROGRESS: 0.00%</div>
+  </div>
+</div>
+
+<div id="stats">
+  <div class="stat">PACKETS SENT: <span class="value" id="stat-packets">0</span></div>
+  <div class="stat">CONNECTIONS: <span class="value" id="stat-conns">0</span></div>
+  <div class="stat">BANDWIDTH: <span class="value" id="stat-bandwidth">0 Mbps</span></div>
+  <div class="stat">BOTS ONLINE: <span class="value" id="stat-bots">0</span></div>
+  <div class="stat">ELAPSED: <span class="value" id="stat-elapsed">00:00:00</span></div>
+</div>
+
+<div id="terminal"></div>
+
+<div id="footer">
+  <span>[CTRL+C] ABORT</span>
+  <span id="footer-ip">SOURCE: 10.0.0.45:49152</span>
+</div>
+
+<!-- ===== FLOATING TERMINAL ===== -->
+<div id="float-term">
+  <div id="float-term-title">
+    <span class="label"><span class="dot"></span>fsociety://C2_CONSOLE</span>
+    <span class="actions">
+      <button id="float-min-btn" title="Minimize">_</button>
+      <button id="float-close-btn" class="close-btn" title="Close">x</button>
+    </span>
+  </div>
+  <div id="float-term-output">
+    <div class="flog"><span class="fsys">[SYSTEM] C2 channel initialized</span></div>
+    <div class="flog"><span class="fsys">[SYSTEM] AES-256 encryption active</span></div>
+    <div class="flog"><span class="fsys">[SYSTEM] Awaiting input...</span></div>
+  </div>
+  <div id="float-term-input-line">
+    <span class="prompt">root@fsociety:~$</span>
+    <input type="text" id="float-term-input" placeholder="type a key..." autofocus spellcheck="false" autocomplete="off">
+  </div>
+  <div id="float-term-status">
+    <span>CONN: SECURE</span>
+    <span id="float-key-count">KEYS: 0</span>
+  </div>
+</div>
+
+<script>
+const terminal = document.getElementById('terminal');
+const progressBar = document.getElementById('progress-bar');
+const progressText = document.getElementById('progress-text');
+const statPackets = document.getElementById('stat-packets');
+const statConns = document.getElementById('stat-conns');
+const statBandwidth = document.getElementById('stat-bandwidth');
+const statBots = document.getElementById('stat-bots');
+const statElapsed = document.getElementById('stat-elapsed');
+const statusTime = document.getElementById('status-time');
+const connStatus = document.getElementById('conn-status');
+const glitchLine = document.getElementById('glitch-line');
+
+const targetIP = '192.168.1.105';
+const sourceIP = '10.0.0.45';
+const basePort = 49152;
+
+let packetsSent = 0;
+let connections = 0;
+let botsOnline = 0;
+let progress = 0;
+let startTime = Date.now();
+let elapsedSeconds = 0;
+let lineCount = 0;
+const maxLines = 200;
+
+const botIPs = [
+  '45.33.32.156', '185.220.101.28', '91.121.86.156', '51.75.145.238',
+  '192.168.1.45', '10.0.0.12', '172.16.0.88', '89.45.67.123',
+  '203.0.113.42', '198.51.100.73', '104.28.7.15', '31.13.24.9',
+  '78.46.89.142', '176.9.41.187', '144.76.60.214', '5.9.158.75',
+  '192.168.1.78', '10.0.0.34', '172.16.0.12', '89.45.67.200',
+  '45.56.78.12', '67.205.131.45', '162.243.0.17', '138.68.49.37',
+  '178.62.12.8', '159.203.89.45', '128.199.78.3', '165.227.34.12',
+  '192.168.1.102', '10.0.0.67', '172.16.0.45', '89.45.67.55'
+];
+
+const messages = {
+  info: [
+    'Initializing packet flood engine...',
+    'Connection established with target',
+    'SYN packet sent, awaiting response...',
+    'ACK received, handshake complete',
+    'Spoofing source IP address...',
+    'Bypassing firewall rules...',
+    'Evading IDS/IPS detection...',
+    'Injecting malicious payload...',
+    'Fragmenting packets to avoid detection',
+    'Rotating source ports...',
+    'Establishing persistence...',
+    'Loading attack module...',
+    'Encrypting communication channel...',
+    'Proxying through intermediate nodes...',
+  ],
+  warn: [
+    'WARNING: Packet loss detected',
+    'WARNING: Rate limiting in effect',
+    'WARNING: Firewall rules updated',
+    'WARNING: High latency detected on node',
+    'WARNING: Connection reset by peer',
+    'WARNING: TTL exceeded, rerouting...',
+    'WARNING: Checksum mismatch, retransmitting...',
+  ],
+  error: [
+    'ERROR: Connection timeout',
+    'ERROR: Target reset connection',
+    'ERROR: Invalid packet sequence',
+    'ERROR: RST received, reconnecting...',
+    'ERROR: SYN-ACK mismatch',
+    'ERROR: Buffer overflow imminent',
+  ],
+  success: [
+    'SUCCESS: Target firewall breached',
+    'SUCCESS: Backdoor established',
+    'SUCCESS: Payload delivered',
+    'SUCCESS: Node compromised',
+    'SUCCESS: Botnet node activated',
+  ],
+  system: [
+    '>> SYSTEM: Memory utilization at {n}%',
+    '>> SYSTEM: CPU load: {n}%',
+    '>> SYSTEM: Network buffer: {n} MB',
+  ]
+};
+
+// ===== PREDEFINED CODES FOR FLOATING TERMINAL =====
+const codes = [
+  'ping 192.168.1.105',
+  'nmap 192.168.1.105',
+  'curl http://192.168.1.105',
+  'nc 192.168.1.105 80',
+  'dig 192.168.1.105',
+  'whois 192.168.1.105',
+  'traceroute 192.168.1.105',
+  'wget http://192.168.1.105',
+  'telnet 192.168.1.105 80',
+  'ssh root@192.168.1.105',
+  'ftp 192.168.1.105',
+  'smbclient 192.168.1.105',
+  'enum4linux 192.168.1.105',
+  'nmap -p- 192.168.1.105',
+  'nikto -h 192.168.1.105',
+  'sqlmap -u http://192.168.1.105',
+  'hydra admin@192.168.1.105',
+  'john hash.txt',
+  'aircrack cap.cap',
+  'tshark -i eth0',
+  'tcpdump -i eth0',
+  'arpspoof 192.168.1.105',
+  'ettercap 192.168.1.105',
+  'hping3 192.168.1.105',
+  'proxychains nmap 192.168.1.105',
+  'beef-xss 192.168.1.105',
+  'wpscan 192.168.1.105',
+  'socat 192.168.1.105:80',
+  'dsniff -i eth0',
+  'python3 revshell.py',
+  'python2 exploit.py',
+  'curl -X POST 192.168.1.105',
+  'openssl s_client 192.168.1.105',
+  'openssl enc -in payload.bin',
+  'nc -lvp 4444',
+  'msfconsole',
+  'searchsploit apache',
+  'crackmapexec 192.168.1.105',
+  'chntpw SAM',
+  'airgeddon -i wlan0',
+];
+
+const enterErrorMessages = [
+  "CRITICAL: Buffer overflow detected in target memory segment",
+  "CRITICAL: Segmentation fault at address 0x7fff2c3a",
+  "FATAL: Kernel panic on target - system unstable",
+  "ERROR: Connection pool exhausted - reconnecting...",
+  "CRITICAL: IDS signature match - rotating IP proxy",
+  "ERROR: Target WAF blocking requests - deploying evasion",
+  "CRITICAL: Backpressure detected - flooding at capacity",
+  "ERROR: SSL/TLS handshake failure - retrying with downgrade",
+  "FATAL: Memory corruption in packet buffer - flushing",
+  "CRITICAL: Reverse shell payload triggered",
+  "ERROR: Rate limit exceeded - cooling down 5s",
+  "FATAL: Unhandled exception in flood engine - restarting module",
+  "CRITICAL: Honeypot detected on subnet 192.168.1.0/24",
+  "ERROR: Target is fighting back - ACK storm detected",
+  "FATAL: Zombie processes accumulating - killing orphans",
+  "CRITICAL: Egress filter detected - tunneling through port 443",
+  "ERROR: Packet fragmentation reassembly timeout",
+  "FATAL: CRC mismatch on payload injection",
+  "CRITICAL: Man-in-the-middle interference detected",
+  "ERROR: Target switched to Cloudflare - bypassing CDN",
+  "FATAL: Out-of-memory killer activated on bot node 10.0.0.12",
+  "CRITICAL: Supervisor process unresponsive - force killing",
+  "ERROR: TCP window scaling mismatch - adjusting",
+  "FATAL: SMB relay attack failed - target patched",
+];
+
+let keyPressCount = 0;
+let codeIndex = 0;
+
+const Sound={
+  ctx:null,
+  getCtx(){if(!this.ctx)this.ctx=new(window.AudioContext||window.webkitAudioContext)();return this.ctx},
+  blip(){const c=this.getCtx(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=900;o.type='sine';g.gain.setValueAtTime(0.07,c.currentTime);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.05);o.start();o.stop(c.currentTime+0.05)},
+};
+
+function pad(n) {
+  return String(n).padStart(2, '0');
+}
+
+function timestamp() {
+  const now = new Date();
+  return `${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}.${String(now.getMilliseconds()).padStart(3, '0')}`;
+}
+
+function randomIP() {
+  return botIPs[Math.floor(Math.random() * botIPs.length)];
+}
+
+function randomPort() {
+  return Math.floor(Math.random() * 65535);
+}
+
+function randomBytes() {
+  const sizes = [64, 128, 256, 512, 1024, 1500, 2048, 4096];
+  return sizes[Math.floor(Math.random() * sizes.length)];
+}
+
+function formatNumber(n) {
+  if (n >= 1000000) return (n / 1000000).toFixed(2) + 'M';
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'K';
+  return n.toString();
+}
+
+function addLine(parts) {
+  const line = document.createElement('div');
+  line.className = 'log-line';
+  let html = `<span class="timestamp">[${timestamp()}]</span> `;
+  for (const p of parts) {
+    html += `<span class="${p[0]}">${p[1]}</span>`;
+  }
+  line.innerHTML = html;
+  terminal.appendChild(line);
+  lineCount++;
+
+  while (terminal.children.length > maxLines) {
+    terminal.removeChild(terminal.firstChild);
+    lineCount--;
+  }
+
+  terminal.scrollTop = terminal.scrollHeight;
+}
+
+function addErrorLines(count) {
+  for (let i = 0; i < count; i++) {
+    const msg = enterErrorMessages[Math.floor(Math.random() * enterErrorMessages.length)];
+    addLine([['error', msg]]);
+    if (i === 0) {
+      addLine([['ip-addr', `  >> Source: ${randomIP()}:${randomPort()}`]]);
+    }
+  }
+  triggerGlitch();
+  triggerGlitch();
+}
+
+function generatePacketLog() {
+  const bot = randomIP();
+  const srcPort = randomPort();
+  const dstPort = [80, 443, 8080, 22, 3389][Math.floor(Math.random() * 5)];
+  const size = randomBytes();
+  const seq = Math.floor(Math.random() * 4294967295);
+  const ack = Math.floor(Math.random() * 4294967295);
+  const protocols = ['TCP', 'UDP', 'ICMP', 'HTTP', 'HTTPS', 'SYN', 'ACK', 'PSH', 'RST'];
+  const proto = protocols[Math.floor(Math.random() * protocols.length)];
+  const flags = ['SYN', 'SYN-ACK', 'ACK', 'PSH-ACK', 'FIN', 'RST'];
+  const flag = flags[Math.floor(Math.random() * flags.length)];
+
+  const types = [
+    () => addLine([
+      ['ip-addr', `${bot}`],
+      ['port', `:${srcPort}`],
+      ['dim', ` -> `],
+      ['ip-addr', `${targetIP}`],
+      ['port', `:${dstPort}`],
+      ['dim', ` [${proto}]`],
+      ['packet', ` SEQ:${seq} ACK:${ack}`],
+      ['dim', ` SIZE:${size}B`],
+      ['warn', ` [${flag}]`]
+    ]),
+    () => addLine([
+      ['ip-addr', `${bot}`],
+      ['port', `:${srcPort}`],
+      ['dim', ` -> `],
+      ['ip-addr', `${targetIP}`],
+      ['port', `:${dstPort}`],
+      ['dim', ` [${proto}]`],
+      ['packet', ` PSH:${Math.random() > 0.5 ? 1 : 0} URG:${Math.random() > 0.7 ? 1 : 0}`],
+      ['dim', ` WIN:${Math.floor(Math.random() * 65535)}`]
+    ]),
+    () => addLine([
+      ['ip-addr', `${randomIP()}`],
+      ['port', `:${randomPort()}`],
+      ['dim', ` <- `],
+      ['ip-addr', `${targetIP}`],
+      ['port', `:${80}`],
+      ['dim', ` [TCP]`],
+      ['info', ` RST received`]
+    ]),
+    () => addLine([
+      ['dim', `[PROXY] `],
+      ['ip-addr', `${bot}`],
+      ['dim', ` -> `],
+      ['ip-addr', `${randomIP()}`],
+      ['dim', ` -> `],
+      ['ip-addr', `${targetIP}`],
+      ['dim', ` routed (${Math.floor(Math.random() * 10 + 1)} hops)`]
+    ]),
+  ];
+
+  types[Math.floor(Math.random() * types.length)]();
+}
+
+function generateSpecialLine() {
+  const r = Math.random();
+  if (r < 0.15) {
+    const msg = messages.warn[Math.floor(Math.random() * messages.warn.length)];
+    addLine([['warn', msg]]);
+  } else if (r < 0.25) {
+    const msg = messages.error[Math.floor(Math.random() * messages.error.length)];
+    addLine([['error', msg]]);
+    if (Math.random() > 0.5) {
+      setTimeout(() => addLine([['success', 'Retransmission successful']]), 100);
+    }
+  } else if (r < 0.35) {
+    const msg = messages.info[Math.floor(Math.random() * messages.info.length)];
+    addLine([['info', msg]]);
+  } else if (r < 0.40) {
+    const msg = messages.success[Math.floor(Math.random() * messages.success.length)];
+    addLine([['success', msg]]);
+    connections++;
+  } else if (r < 0.45) {
+    const n = Math.floor(Math.random() * 30 + 60);
+    addLine([['system', `>> SYSTEM: Memory utilization: ${n}%`]]);
+  } else if (r < 0.48) {
+    const msg = messages.system[Math.floor(Math.random() * messages.system.length)];
+    addLine([['system', `>> SYSTEM: ${msg.replace('{n}', Math.floor(Math.random() * 40 + 10))}`]]);
+  } else if (r < 0.52) {
+    const botsToAdd = Math.floor(Math.random() * 5) + 1;
+    botsOnline += botsToAdd;
+    addLine([['success', `[BOTNET] ${botsToAdd} new node(s) joined the cluster (total: ${botsOnline})`]]);
+  } else if (r < 0.55) {
+    addLine([
+      ['highlight', `>>> INCOMING CONNECTION from `],
+      ['ip-addr', `${randomIP()}`],
+      ['highlight', ` on port ${randomPort()}`]
+    ]);
+  } else if (r < 0.58) {
+    addLine([['dim', `[HEARTBEAT] ${randomIP()} : OK (RTT: ${Math.floor(Math.random() * 200 + 10)}ms)`]]);
+  } else {
+    generatePacketLog();
+  }
+}
+
+function triggerGlitch() {
+  if (Math.random() > 0.05) return;
+  glitchLine.style.opacity = '0.6';
+  const y = Math.random() * window.innerHeight;
+  glitchLine.style.top = y + 'px';
+  setTimeout(() => { glitchLine.style.opacity = '0'; }, 100);
+
+  if (Math.random() > 0.5) {
+    document.body.classList.add('glitch');
+    setTimeout(() => document.body.classList.remove('glitch'), 150);
+  }
+
+  if (Math.random() > 0.7) {
+    document.getElementById('header').classList.add('flash-red');
+    setTimeout(() => document.getElementById('header').classList.remove('flash-red'), 200);
+  }
+}
+
+function updateStats() {
+  elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
+  const h = Math.floor(elapsedSeconds / 3600);
+  const m = Math.floor((elapsedSeconds % 3600) / 60);
+  const s = elapsedSeconds % 60;
+  const elapsed = `${pad(h)}:${pad(m)}:${pad(s)}`;
+
+  packetsSent += Math.floor(Math.random() * 50 + 10);
+  progress = Math.min(progress + (Math.random() * 0.1 + 0.03), 100);
+
+  progressBar.style.width = progress + '%';
+  progressText.textContent = `ATTACK PROGRESS: ${progress.toFixed(2)}%`;
+  statPackets.textContent = formatNumber(packetsSent);
+  statConns.textContent = connections;
+  statBots.textContent = botsOnline;
+
+  const bw = (packetsSent / (elapsedSeconds || 1) * Math.random() * 0.1).toFixed(2);
+  statBandwidth.textContent = bw + ' Mbps';
+
+  statElapsed.textContent = elapsed;
+  statusTime.textContent = elapsed;
+
+  if (progress >= 100) {
+    addLine([['highlight', '==============================================']]);
+    addLine([['highlight', '  ATTACK COMPLETE - TARGET NEUTRALIZED']]);
+    addLine([['highlight', '==============================================']]);
+    addLine([['success', `Total packets sent: ${formatNumber(packetsSent)}`]]);
+    addLine([['success', `Peak bandwidth: ${bw} Mbps`]]);
+    addLine([['success', `Nodes compromised: ${botsOnline}`]]);
+    addLine([['system', '>> SYSTEM: Shutting down attack vector...']]);
+    clearInterval(mainLoop);
+    clearInterval(statsLoop);
+  }
+
+  if (progress > 40 && Math.random() > 0.8 && connStatus.innerHTML.indexOf('DEGRADED') === -1) {
+    connStatus.innerHTML = '<span style="color:#ffff33">DEGRADED</span>';
+    setTimeout(() => {
+      connStatus.innerHTML = '<span style="color:#ffffff">ESTABLISHED</span>';
+    }, 2000);
+  }
+
+  if (progress > 70 && Math.random() > 0.9) {
+    connStatus.innerHTML = '<span style="color:#ff3333">UNDER ATTACK</span>';
+    triggerGlitch();
+  }
+}
+
+function dramaticSequence() {
+  addLine([['highlight', '==============================================']]);
+  addLine([['highlight', '  fsociety INITIALIZING DISTRIBUTED ATTACK']]);
+  addLine([['highlight', '==============================================']]);
+  addLine([['info', 'Loading attack vectors...']]);
+  addLine([['info', 'Scanning target vulnerabilities...']]);
+  addLine([['ip-addr', `Target: ${targetIP}`]]);
+  addLine([['info', 'Resolving hostname...']]);
+  addLine([['success', 'Host resolved: EVIL-CORP-SERVER-01']]);
+  addLine([['info', 'Enumerating open ports...']]);
+  addLine([['success', 'Ports open: 80, 443, 8080, 22, 3306']]);
+  addLine([['warn', 'Firewall detected on target']]);
+  addLine([['info', 'Deploying evasion techniques...']]);
+  addLine([['success', 'Firewall bypassed using fragmented packets']]);
+  addLine([['info', 'Establishing C2 channel...']]);
+  addLine([['success', 'C2 channel encrypted with AES-256']]);
+  addLine([['info', 'Recruiting botnet nodes...']]);
+  addLine([['success', '12 nodes added to botnet cluster']]);
+  addLine([['success', 'Attack vector primed and ready']]);
+  addLine([['highlight', '----------------------------------------------']]);
+  addLine([['error', 'INITIATING PACKET FLOOD IN 3...']]);
+  addLine([['error', 'INITIATING PACKET FLOOD IN 2...']]);
+  addLine([['error', 'INITIATING PACKET FLOOD IN 1...']]);
+  addLine([['highlight', '>>> LAUNCHING DDOS ATTACK <<<']]);
+  addLine([['highlight', '==============================================']]);
+}
+
+// ---- MATRIX RAIN ----
+const canvas = document.getElementById('matrix-rain');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+  canvas.width = window.innerWidth;
+  canvas.height = window.innerHeight;
+}
+resizeCanvas();
+window.addEventListener('resize', resizeCanvas);
+
+const chars = 'アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン0123456789ABCDEF';
+const fontSize = 10;
+const columns = Math.floor(canvas.width / fontSize);
+const drops = Array(columns).fill(1);
+
+function drawMatrix() {
+  ctx.fillStyle = 'rgba(10, 10, 10, 0.05)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillStyle = '#66ddff';
+  ctx.font = fontSize + 'px monospace';
+
+  for (let i = 0; i < drops.length; i++) {
+    const char = chars[Math.floor(Math.random() * chars.length)];
+    ctx.fillText(char, i * fontSize, drops[i] * fontSize);
+    if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
+      drops[i] = 0;
+    }
+    drops[i]++;
+  }
+}
+
+// ===== FLOATING TERMINAL LOGIC =====
+const floatOutput = document.getElementById('float-term-output');
+const floatInput = document.getElementById('float-term-input');
+const floatKeyCount = document.getElementById('float-key-count');
+const floatTerm = document.getElementById('float-term');
+const floatTitle = document.getElementById('float-term-title');
+
+function addFloatLog(type, text) {
+  const line = document.createElement('div');
+  line.className = 'flog';
+  line.innerHTML = `<span class="${type}">${text}</span>`;
+  floatOutput.appendChild(line);
+  floatOutput.scrollTop = floatOutput.scrollHeight;
+
+  while (floatOutput.children.length > 50) {
+    floatOutput.removeChild(floatOutput.firstChild);
+  }
+}
+
+floatInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') {
+    e.preventDefault();Sound.blip();
+    const typed = floatInput.value.trim();
+    if (typed === 'start root access --sync') {
+      floatInput.value = '';
+      addFloatLog('fsys', '  [SYSTEM] Elevating privileges...');
+      addFloatLog('fsys', '  [SYSTEM] Accessing network infrastructure...');
+      addFloatLog('fsys', '  [SYSTEM] Redirecting to infrastructure dashboard...');
+      setTimeout(() => {
+        window.location.href = 'tech_dashboard.html';
+      }, 1500);
+      return;
+    }
+    const cmd = typed || codes[Math.floor(Math.random() * codes.length)];
+    if (cmd) {
+      addFloatLog('fcmd', `> ${cmd}`);
+      addFloatLog('ferr', '  !! SEGMENTATION FAULT - CORE DUMPED');
+      addFloatLog('ferr', '  !! ILLEGAL INSTRUCTION AT 0x7fff2c3a');
+      addFloatLog('fwarn', '  !! MEMORY CORRUPTION DETECTED');
+      addFloatLog('ferr', '  !! KERNEL PANIC - SYSTEM HALTED');
+    }
+    floatInput.value = '';
+
+    // Trigger errors in main terminal
+    const errCount = Math.floor(Math.random() * 6) + 4;
+    addErrorLines(errCount);
+    if (progress < 100) {
+      progress = Math.min(progress + Math.random() * 0.3 + 0.05, 100);
+    }
+    return;
+  }
+
+  // Ignore special keys
+  if (e.key === 'Shift' || e.key === 'Control' || e.key === 'Alt' ||
+      e.key === 'Meta' || e.key === 'CapsLock' || e.key === 'Tab' ||
+      e.key === 'Escape' || e.key === 'Backspace' || e.key === 'Delete' ||
+      e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' ||
+      e.key === 'ArrowRight' || e.key === 'Home' || e.key === 'End' ||
+      e.key === 'PageUp' || e.key === 'PageDown' || e.key === 'Insert') {
+    return;
+  }
+
+  keyPressCount++;
+  floatKeyCount.textContent = `KEYS: ${keyPressCount}`;
+
+  const code = codes[codeIndex % codes.length];
+  codeIndex++;
+  addFloatLog('fcmd', `> ${code}`);
+
+  // Randomly add outputs
+  const r = Math.random();
+  if (r < 0.3) {
+    addFloatLog('fout', `  OK (${Math.floor(Math.random() * 2000)}ms)`);
+  } else if (r < 0.5) {
+    addFloatLog('fwarn', `  Connection timeout - retry ${Math.floor(Math.random() * 3) + 1}/${3}`);
+  } else if (r < 0.65) {
+    addFloatLog('fout', `  [${Math.random().toString(36).substring(2, 10)}] token issued`);
+  } else if (r < 0.75) {
+    addFloatLog('ferr', `  Error: ${Math.floor(Math.random() * 255)} - ${['Access denied','Not found','Forbidden','Method not allowed'][Math.floor(Math.random()*4)]}`);
+  } else if (r < 0.85) {
+    addFloatLog('fout', `  ${Math.floor(Math.random() * 1024 + 64)} bytes received from ${randomIP()}`);
+  } else {
+    addFloatLog('fsys', `  [PROXY] routing through ${Math.floor(Math.random() * 5) + 2} nodes`);
+  }
+
+  if (keyPressCount % 5 === 0) {
+    addFloatLog('fwarn', '  [RATE-LIMIT] Cooling down...');
+  }
+
+  if (keyPressCount % 10 === 0) {
+    addFloatLog('ferr', '  !! BUFFER OVERFLOW DETECTED IN SEGMENT 0x7fff');
+    addFloatLog('ferr', '  !! Stack smashing detected - aborting');
+  }
+});
+
+// Keep focus on input
+document.addEventListener('click', () => {
+  if (floatTerm.style.display !== 'none') {
+    floatInput.focus();
+  }
+});
+
+// Drag
+let isDragging = false, dragOffsetX, dragOffsetY;
+
+floatTitle.addEventListener('mousedown', (e) => {
+  if (e.target.tagName === 'BUTTON') return;
+  isDragging = true;
+  dragOffsetX = e.clientX - floatTerm.getBoundingClientRect().left;
+  dragOffsetY = e.clientY - floatTerm.getBoundingClientRect().top;
+  floatTerm.style.cursor = 'grabbing';
+  e.preventDefault();
+});
+
+document.addEventListener('mousemove', (e) => {
+  if (!isDragging) return;
+  floatTerm.style.left = (e.clientX - dragOffsetX) + 'px';
+  floatTerm.style.top = (e.clientY - dragOffsetY) + 'px';
+  floatTerm.style.right = 'auto';
+  floatTerm.style.bottom = 'auto';
+});
+
+document.addEventListener('mouseup', () => {
+  isDragging = false;
+  floatTerm.style.cursor = '';
+});
+
+// Min / Close
+document.getElementById('float-min-btn').addEventListener('click', () => {
+  floatTerm.style.display = 'none';
+});
+
+document.getElementById('float-close-btn').addEventListener('click', () => {
+  addLine([['error', 'FATAL: C2 console terminated by user']]);
+  addLine([['error', 'CRITICAL: Loss of command & control channel']]);
+  addLine([['warn', 'WARNING: Botnet nodes entering emergency mode']]);
+  floatTerm.style.display = 'none';
+});
+
+// ---- MAIN ----
+let mainLoop, statsLoop, dramaticDone = false;
+
+function start() {
+  dramaticSequence();
+
+  setTimeout(() => {
+    mainLoop = setInterval(() => {
+      const count = Math.floor(Math.random() * 3) + 1;
+      for (let i = 0; i < count; i++) {
+        generateSpecialLine();
+      }
+      triggerGlitch();
+    }, 150);
+
+    statsLoop = setInterval(updateStats, 1000);
+
+    setInterval(drawMatrix, 50);
+  }, 500);
+}
+
+start();
+
+// Speed up as progress increases
+setInterval(() => {
+  if (mainLoop && progress < 100) {
+    const speed = Math.max(30, 150 - progress * 1.2);
+    clearInterval(mainLoop);
+    mainLoop = setInterval(() => {
+      const count = Math.floor(Math.random() * (progress > 50 ? 5 : 3)) + 1;
+      for (let i = 0; i < count; i++) {
+        generateSpecialLine();
+      }
+      triggerGlitch();
+    }, speed);
+  }
+}, 5000);
+
+</script>
+</body>
+</html>

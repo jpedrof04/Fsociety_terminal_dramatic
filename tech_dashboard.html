@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>fsociety // INFRASTRUCTURE DASHBOARD</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    background:#050a14;
+    font-family:'Share Tech Mono',monospace;
+    height:100vh;overflow:hidden;
+    color:#c0d8f0;
+    display:flex;flex-direction:column
+  }
+  ::-webkit-scrollbar{width:4px}
+  ::-webkit-scrollbar-track{background:transparent}
+  ::-webkit-scrollbar-thumb{background:#1a3050;border-radius:2px}
+
+  #grid-bg{
+    position:fixed;inset:0;
+    background-image:linear-gradient(rgba(0,180,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,180,255,0.03) 1px,transparent 1px);
+    background-size:40px 40px;
+    pointer-events:none;z-index:0
+  }
+  .noise-overlay{
+    position:fixed;inset:0;pointer-events:none;z-index:14;
+    opacity:.012;
+    background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-repeat:repeat;background-size:256px 256px
+  }
+  .scanline{
+    position:fixed;top:0;left:0;width:100%;height:2px;
+    background:rgba(0,204,255,0.04);box-shadow:0 0 10px rgba(0,204,255,0.1);
+    z-index:15;pointer-events:none;
+    animation:scanMove 5s linear infinite
+  }
+  @keyframes scanMove{0%{top:0}100%{top:100%}}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+
+  #top-bar{
+    position:relative;z-index:10;
+    padding:8px 24px;
+    background:rgba(5,10,20,0.95);
+    border-bottom:1px solid #0a2840;
+    display:flex;justify-content:space-between;align-items:center;
+    flex-shrink:0;height:38px
+  }
+  #top-bar .brand{color:#00ccff;font-size:13px;letter-spacing:2px;text-shadow:0 0 12px rgba(0,204,255,0.3)}
+  #top-bar .brand span{color:#ff3333}
+  #top-bar .links{display:flex;gap:14px;align-items:center}
+  #top-bar .links a{color:#335577;font-size:11px;text-decoration:none;transition:.2s}
+  #top-bar .links a:hover{color:#00ccff;text-shadow:0 0 8px rgba(0,204,255,0.3)}
+  #top-bar .status-tag{font-size:10px;color:#00ff66;text-shadow:0 0 6px rgba(0,255,102,0.2)}
+  #top-bar .status-tag .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#00ff66;margin-right:5px;box-shadow:0 0 6px #00ff66;animation:blink 1.2s step-end infinite}
+
+  #dash{
+    position:relative;z-index:1;flex-shrink:0;
+    padding:8px 24px 6px;
+    display:flex;gap:16px;min-height:0
+  }
+  .d-left{flex:0 0 280px;display:flex;flex-direction:column;gap:8px}
+  .d-right{flex:1;min-width:0;display:flex;flex-direction:column}
+
+  /* ===== ADMIN BLOCK (brilhoso) ===== */
+  .admin-block{
+    background:rgba(10,30,60,0.5);
+    border:1px solid rgba(51,153,255,0.3);
+    border-radius:8px;
+    padding:12px 14px 10px;
+    position:relative;
+    overflow:hidden;
+    box-shadow:0 0 35px rgba(51,153,255,0.1),inset 0 0 40px rgba(51,153,255,0.05)
+  }
+  .admin-block::before{
+    content:'';
+    position:absolute;top:-50%;left:-50%;width:200%;height:200%;
+    background:conic-gradient(from 0deg at 50% 50%,transparent,rgba(51,153,255,0.05),transparent,rgba(51,153,255,0.08),transparent);
+    animation:shine 7s linear infinite;
+    pointer-events:none
+  }
+  @keyframes shine{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}
+  .admin-block::after{
+    content:'';position:absolute;inset:0;
+    background:radial-gradient(ellipse at 30% 20%,rgba(51,153,255,0.08),transparent 60%);
+    pointer-events:none
+  }
+  .ab-title{
+    font-size:9px;color:#3399ff;letter-spacing:4px;margin-bottom:8px;
+    text-shadow:0 0 12px rgba(51,153,255,0.4);
+    position:relative;z-index:1
+  }
+  .ab-row{display:flex;flex-direction:column;gap:6px;position:relative;z-index:1}
+
+  /* ===== CARDS ===== */
+  .card{
+    background:rgba(8,18,35,0.9);
+    border:1px solid #0a2840;border-radius:6px;
+    position:relative;overflow:hidden;
+    transition:.2s
+  }
+  .card::before{content:'';position:absolute;top:0;left:0;width:100%;height:1.5px;background:linear-gradient(90deg,transparent,var(--accent),transparent);opacity:.5}
+  .card:hover{border-color:var(--accent);box-shadow:0 0 18px rgba(0,0,0,0.4)}
+  .card.admin{--accent:#3399ff;border-color:rgba(51,153,255,0.2)}
+  .card.router{--accent:#cc66ff;border-color:#2a1040}
+  .card.server{--accent:#00cc88;border-color:#003020}
+
+  .c-hdr{display:flex;align-items:center;gap:6px;margin-bottom:3px}
+  .c-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;transition:.3s}
+  .c-dot.healthy{background:#00ff66;box-shadow:0 0 6px #00ff66}
+  .c-dot.warning{background:#ffcc00;box-shadow:0 0 6px #ffcc00}
+  .c-dot.critical{background:#ff3333;box-shadow:0 0 6px #ff3333}
+  .c-icon{width:22px;height:22px;display:flex;align-items:center;justify-content:center;border-radius:4px;font-size:11px;flex-shrink:0}
+  .admin .c-icon{background:rgba(51,153,255,0.15);color:#3399ff}
+  .router .c-icon{background:rgba(204,102,255,0.15);color:#cc66ff}
+  .server .c-icon{background:rgba(0,204,136,0.15);color:#00cc88}
+  .c-name{font-size:11px;color:#fff;font-weight:700;text-shadow:0 0 4px rgba(255,255,255,0.08)}
+  .c-meta{font-size:9px;color:#335577;display:flex;gap:10px;flex-wrap:wrap}
+  .c-meta span{display:flex;align-items:center;gap:3px}
+  .c-meta .v{color:#6688aa}
+  .c-meta .v.good{color:#00ff66}
+  .c-meta .v.warn{color:#ffcc00}
+  .c-meta .v.bad{color:#ff3333}
+  .c-bar{height:2px;background:#0a2030;border-radius:1px;overflow:hidden;margin-top:4px}
+  .c-bar .f{height:100%;border-radius:1px;transition:width 1s;width:0%}
+  .admin .c-bar .f{background:#3399ff}
+  .router .c-bar .f{background:#cc66ff}
+  .server .c-bar .f{background:#00cc88}
+
+  /* Admin cards (inside block) */
+  .card.admin{padding:8px 12px}
+  .card.admin .c-name{font-size:11px}
+  .card.admin .c-meta{font-size:9px}
+
+  /* Router cards */
+  .router-row{display:flex;gap:6px}
+  .router-row .card{flex:1;min-width:0;padding:8px 10px}
+  .router-row .card .c-name{font-size:10px}
+
+  /* Server cards */
+  .server-row{display:flex;gap:8px;flex:1}
+  .server-row .card{flex:1;min-width:0;padding:12px 14px;display:flex;flex-direction:column;justify-content:center}
+  .server-row .card .c-name{font-size:12px}
+  .server-row .card .c-meta{font-size:10px;margin-top:2px}
+  .server-row .card .c-bar{margin-top:6px}
+
+  .sec-title{font-size:9px;color:#335577;letter-spacing:4px;margin-bottom:6px;padding-left:10px;border-left:2px solid var(--accent);text-shadow:0 0 6px rgba(0,0,0,0.3)}
+  .sec-title.st-admin{--accent:#3399ff}
+  .sec-title.st-router{--accent:#cc66ff}
+  .sec-title.st-server{--accent:#00cc88;margin-top:4px}
+
+  /* ===== BOTTOM PANELS (side by side) ===== */
+  #bottom{
+    position:relative;z-index:1;
+    flex:1;display:flex;gap:12px;
+    padding:0 24px 10px;min-height:0
+  }
+  .bp{
+    display:flex;flex-direction:column;
+    background:rgba(5,10,20,0.55);
+    backdrop-filter:blur(16px) saturate(1.2);
+    -webkit-backdrop-filter:blur(16px) saturate(1.2);
+    border:1px solid rgba(0,204,255,0.12);
+    box-shadow:0 0 30px rgba(0,0,0,0.4);
+    border-radius:6px;overflow:hidden
+  }
+  .bp::before{
+    content:'';position:absolute;top:0;left:0;width:100%;height:100%;
+    background:radial-gradient(ellipse at 50% 0%,rgba(0,204,255,0.03) 0%,transparent 70%);
+    pointer-events:none;z-index:0
+  }
+  .bp>*{position:relative;z-index:1}
+
+  #log-panel{flex:3;min-width:0}
+  #term-panel{flex:1;min-width:280px;max-width:400px;border-color:rgba(255,102,170,0.15)}
+  #term-panel::before{background:radial-gradient(ellipse at 50% 0%,rgba(255,102,170,0.03) 0%,transparent 70%)}
+
+  .bp-title{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:6px 12px;
+    background:rgba(8,18,35,0.7);
+    border-bottom:1px solid rgba(0,204,255,0.08);
+    cursor:move;user-select:none;flex-shrink:0
+  }
+  #term-panel .bp-title{border-bottom-color:rgba(255,102,170,0.1)}
+  #term-panel .bp-title .bl{color:#ff66aa;text-shadow:0 0 5px rgba(255,102,170,0.2)}
+  #term-panel .bp-title .bl .dot{background:#ff66aa;box-shadow:0 0 5px #ff66aa}
+  .bp-title .bl{font-size:10px;color:#66ddff;text-shadow:0 0 5px rgba(102,221,255,0.2);letter-spacing:1px;display:flex;align-items:center;gap:5px}
+  .bp-title .bl .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#66ddff;box-shadow:0 0 5px #66ddff;animation:blink 1.2s step-end infinite}
+  .bp-title .ba{display:flex;gap:4px}
+  .bp-title .ba button{
+    background:rgba(255,255,255,0.03);border:1px solid rgba(0,204,255,0.08);
+    color:#335577;font-size:9px;width:17px;height:17px;
+    cursor:pointer;font-family:inherit;
+    display:flex;align-items:center;justify-content:center;
+    transition:.15s;border-radius:2px
+  }
+  .bp-title .ba button:hover{color:#66ddff;border-color:#66ddff}
+  .bp-title .ba .cb:hover{color:#ff3333;border-color:#ff3333}
+
+  /* Log output */
+  #log-out{flex:1;overflow-y:auto;padding:5px 12px;font-size:11px;line-height:1.55;background:rgba(3,8,18,0.3)}
+  #log-out .ll{white-space:pre-wrap;word-break:break-all;opacity:0;animation:fadeIn .06s forwards}
+  @keyframes fadeIn{to{opacity:1}}
+  #log-out .ll .t{color:#335577}
+  #log-out .ll .info{color:#66bbdd}
+  #log-out .ll .warn{color:#ffcc00;text-shadow:0 0 3px rgba(255,204,0,0.12)}
+  #log-out .ll .error{color:#ff3333;text-shadow:0 0 5px rgba(255,51,51,0.15)}
+  #log-out .ll .success{color:#fff;text-shadow:0 0 5px rgba(0,204,255,0.15)}
+#log-out .ll .green{color:#00ff66;text-shadow:0 0 6px rgba(0,255,102,0.25)}
+  #log-out .ll .highlight{color:#fff;text-shadow:0 0 8px rgba(255,255,255,0.12)}
+  #log-out .ll .dim{color:#1a3050}
+  #log-out .ll .ip-addr{color:#ff6633;text-shadow:0 0 3px rgba(255,102,51,0.12)}
+  #log-out .ll .port{color:#66ccff}
+  #log-out .ll .packet{color:#ffcc00;text-shadow:0 0 3px rgba(255,204,0,0.12)}
+  #log-out .ll .system{color:#ff66aa;text-shadow:0 0 3px rgba(255,102,170,0.12)}
+  #log-ftr{
+    display:flex;justify-content:space-between;
+    padding:3px 12px;font-size:8px;color:#1a3050;
+    border-top:1px solid rgba(0,204,255,0.04);
+    flex-shrink:0;background:rgba(3,8,18,0.3)
+  }
+
+  /* Terminal output */
+  #term-out{flex:1;overflow-y:auto;padding:4px 10px;font-size:10px;line-height:1.5;background:rgba(3,8,18,0.3);min-height:0}
+  #term-out .tl{white-space:pre-wrap;word-break:break-all;opacity:0;animation:fadeIn .06s forwards}
+  #term-out .tl .tpre{color:#335577}
+  #term-out .tl .tcmd{color:#ffcc00;text-shadow:0 0 3px rgba(255,204,0,0.12)}
+  #term-out .tl .tout{color:#66ddff}
+  #term-out .tl .terr{color:#ff6666}
+  #term-out .tl .twarn{color:#ffff33}
+  #term-inline{
+    display:flex;align-items:center;
+    padding:4px 10px;
+    border-top:1px solid rgba(255,102,170,0.06);
+    background:rgba(5,10,20,0.4);flex-shrink:0
+  }
+  #term-inline .prompt{color:#ff66aa;margin-right:5px;font-size:10px;text-shadow:0 0 3px rgba(255,102,170,0.12)}
+  #term-in{
+    flex:1;background:transparent;border:none;outline:none;
+    color:#66ddff;font-family:'Share Tech Mono',monospace;font-size:10px;
+    caret-color:#66ddff
+  }
+  #term-in::placeholder{color:#1a3050}
+  #term-st{
+    display:flex;justify-content:space-between;
+    padding:2px 10px;font-size:7px;color:#1a3050;
+    border-top:1px solid rgba(255,102,170,0.03);
+    flex-shrink:0;background:rgba(3,8,18,0.3)
+  }
+
+  .float-err{
+    position:fixed;bottom:10px;left:50%;transform:translateX(-50%);
+    background:rgba(255,0,0,0.15);backdrop-filter:blur(8px);
+    border:1px solid rgba(255,0,0,0.2);
+    color:#ff4444;font-size:10px;padding:4px 16px;border-radius:4px;
+    z-index:100;display:none;
+    text-shadow:0 0 8px rgba(255,0,0,0.25);
+    animation:floatErr .3s ease-out
+  }
+  @keyframes floatErr{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
+
+  /* Server boot glow */
+.server-glow{box-shadow:0 0 20px rgba(0,255,136,0.45),0 0 40px rgba(0,255,136,0.15)!important;border-color:#88ffbb!important;background:rgba(200,255,220,0.5)!important}
+.server-glow .c-dot{box-shadow:0 0 18px #00cc88!important}
+  /* Server shutdown */
+  .server-off{opacity:.25;filter:grayscale(.95);border-color:#330000!important;background:rgba(30,0,0,0.35)!important;pointer-events:none}
+  .server-off .c-dot{background:#222!important;box-shadow:none!important}
+  /* Admin panic blink */
+.admin-glow{box-shadow:0 0 60px rgba(0,180,255,0.2),0 0 120px rgba(0,180,255,0.08)!important;border-color:#88ddff!important;background:rgba(0,180,255,0.18)!important}
+.admin-glow .c-dot{background:#88ddff!important;box-shadow:0 0 20px #88ddff!important}
+.admin-super-glow{box-shadow:0 0 100px rgba(150,230,255,0.6),0 0 200px rgba(150,230,255,0.3)!important;border-color:#ffffff!important;background:rgba(220,250,255,0.45)!important}
+.admin-super-glow .c-dot{background:#ccf5ff!important;box-shadow:0 0 40px #ccf5ff!important}
+
+  /* ===== FILE MODAL ===== */
+  #file-modal{
+    position:fixed;inset:0;z-index:200;
+    display:none;align-items:center;justify-content:center;
+    background:rgba(0,0,0,0.7);backdrop-filter:blur(4px);
+    animation:fadeIn .2s ease-out
+  }
+  #file-modal.show{display:flex}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  #file-modal-box{
+    width:680px;max-width:90vw;max-height:80vh;
+    background:#0a0a0a;border:1px solid #1a3050;
+    box-shadow:0 0 60px rgba(0,0,0,0.8),0 0 120px rgba(0,0,0,0.4);
+    display:flex;flex-direction:column;overflow:hidden;
+    animation:zoomIn .2s ease-out
+  }
+  @keyframes zoomIn{from{transform:scale(0.9);opacity:0}to{transform:scale(1);opacity:1}}
+  #file-modal-bar{
+    display:flex;align-items:center;justify-content:space-between;
+    padding:6px 14px;background:#0d0d0d;border-bottom:1px solid #1a3050;flex-shrink:0
+  }
+  #file-modal-bar .title{font-size:11px;color:#66ddff;text-shadow:0 0 6px rgba(102,221,255,0.3);letter-spacing:1px}
+  #file-modal-bar .title .dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:#66ddff;box-shadow:0 0 6px #66ddff;margin-right:6px;animation:blink 1.2s step-end infinite}
+  #file-modal-close{
+    background:none;border:1px solid #1a3050;color:#335577;
+    font-size:10px;width:18px;height:18px;cursor:pointer;
+    font-family:inherit;display:flex;align-items:center;justify-content:center;transition:.15s
+  }
+  #file-modal-close:hover{color:#ff3333;border-color:#ff3333}
+  #file-modal-body{
+    flex:1;overflow-y:auto;padding:16px 20px;
+    background:#080808;font-size:12px;line-height:1.6;color:#ffffff;
+    white-space:pre-wrap;word-break:break-all;font-family:'Share Tech Mono',monospace
+  }
+  #file-modal-body::-webkit-scrollbar{width:4px}
+  #file-modal-body::-webkit-scrollbar-track{background:#080808}
+  #file-modal-body::-webkit-scrollbar-thumb{background:#1a3050;border-radius:2px}
+  #file-modal-body .line-num{color:#335577;margin-right:16px;user-select:none}
+  #file-modal-body .keyword{color:#66ddff;text-shadow:0 0 4px rgba(102,221,255,0.15)}
+  #file-modal-body .string{color:#88dd88}
+  #file-modal-body .comment{color:#5577aa}
+  #file-modal-body .warn-text{color:#ffcc00;text-shadow:0 0 6px rgba(255,204,0,0.2)}
+  #file-modal-body .err-text{color:#ff4444;text-shadow:0 0 8px rgba(255,68,68,0.3)}
+  #file-modal-body .ok-text{color:#00ff66;text-shadow:0 0 6px rgba(0,255,102,0.2)}
+  #file-modal-body .dim-text{color:#335577}
+  #file-modal-body .title-text{color:#ffffff;text-shadow:0 0 10px rgba(255,255,255,0.2);font-size:14px}
+  #file-modal-status{
+    display:flex;justify-content:space-between;
+    padding:3px 14px;font-size:8px;color:#1a3050;
+    border-top:1px solid rgba(0,204,255,0.04);flex-shrink:0;background:#0a0a0a
+  }
+  .del-progress{height:2px;background:#1a3050;border-radius:1px;overflow:hidden;margin:4px 0}
+  .del-progress .bar{height:100%;width:0%;background:#ff3333;border-radius:1px;transition:width .3s}
+
+  @media(max-width:1000px){
+    #dash{padding:6px 14px 4px;flex-direction:column}
+    .d-left{flex:0 0 auto;flex-direction:row;flex-wrap:wrap}
+    .d-left .admin-block{flex:1;min-width:200px}
+    .d-left .router-row{flex:1;min-width:200px}
+    #bottom{padding:0 14px 8px;flex-direction:column}
+    #term-panel{max-width:none;min-width:0}
+  }
+</style>
+</head>
+<body>
+<div id="grid-bg"></div>
+<div class="scanline"></div>
+<div class="noise-overlay"></div>
+<div class="float-err" id="float-err">!! CONNECTION TIMEOUT - RETRYING...</div>
+
+<div id="top-bar">
+  <div class="brand"><span>fsociety</span> // INFRASTRUCTURE</div>
+  <div class="links">
+    <span class="status-tag"><span class="dot"></span>11 NODES ONLINE</span>
+    <a href="ddos_terminal.html">&larr; TERMINAL</a>
+  </div>
+</div>
+
+<div id="dash">
+  <div class="d-left">
+    <div class="admin-block">
+      <div class="ab-title">ADMIN WORKSTATIONS</div>
+      <div class="ab-row" id="admin-col"></div>
+    </div>
+    <div style="position:relative;z-index:1">
+      <div class="sec-title st-router">ROUTERS</div>
+      <div class="router-row" id="router-row"></div>
+    </div>
+  </div>
+  <div class="d-right">
+    <div class="sec-title st-server">SERVER INFRASTRUCTURE</div>
+    <div class="server-row" id="server-row"></div>
+  </div>
+</div>
+
+<div id="bottom">
+  <div class="bp" id="log-panel">
+    <div class="bp-title" id="log-title">
+      <span class="bl"><span class="dot"></span>fsociety://PACKET_MONITOR</span>
+      <span class="ba"><button id="log-min-btn" title="Minimize">_</button><button id="log-close-btn" class="cb" title="Close">x</button></span>
+    </div>
+    <div id="log-out"></div>
+    <div id="log-ftr"><span>TARGET: 192.168.1.105</span><span id="log-pkts">PACKETS: 0</span></div>
+  </div>
+  <div class="bp" id="term-panel">
+    <div class="bp-title" id="term-title">
+      <span class="bl"><span class="dot"></span>fsociety://C2_CONSOLE</span>
+      <span class="ba"><button id="term-min-btn" title="Minimize">_</button><button id="term-close-btn" class="cb" title="Close">x</button></span>
+    </div>
+    <div id="term-out">
+      <div class="tl"><span class="tpre">[SYSTEM] C2 channel initialized</span></div>
+      <div class="tl"><span class="tpre">[SYSTEM] AES-256 encryption active</span></div>
+      <div class="tl"><span class="tpre">[SYSTEM] Awaiting input...</span></div>
+    </div>
+    <div id="term-inline"><span class="prompt">root@fsociety:~$</span><input type="text" id="term-in" placeholder="type a command..." autofocus spellcheck="false" autocomplete="off"></div>
+    <div id="term-st"><span>CONN: SECURE</span><span id="term-key-count">KEYS: 0</span></div>
+  </div>
+</div>
+
+<div id="file-modal">
+  <div id="file-modal-box">
+    <div id="file-modal-bar">
+      <span class="title"><span class="dot"></span>fsociety://FILE_VIEWER</span>
+      <button id="file-modal-close">x</button>
+    </div>
+    <div id="file-modal-body"></div>
+    <div id="file-modal-status"><span>RO: READ-ONLY</span><span id="file-modal-encoding">UTF-8</span></div>
+  </div>
+</div>
+
+<script>
+// ===== SOUND FX =====
+const Sound={
+  ctx:null,
+  getCtx(){if(!this.ctx)this.ctx=new(window.AudioContext||window.webkitAudioContext)();return this.ctx},
+  blip(){const c=this.getCtx(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=900;o.type='sine';g.gain.setValueAtTime(0.07,c.currentTime);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.05);o.start();o.stop(c.currentTime+0.05)},
+  powerOn(){const c=this.getCtx(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.setValueAtTime(300,c.currentTime);o.frequency.exponentialRampToValueAtTime(1000,c.currentTime+0.15);o.type='sine';g.gain.setValueAtTime(0.05,c.currentTime);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.2);o.start();o.stop(c.currentTime+0.2)},
+  deleteWarn(){const c=this.getCtx(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.setValueAtTime(600,c.currentTime);o.frequency.exponentialRampToValueAtTime(80,c.currentTime+0.6);o.type='sawtooth';g.gain.setValueAtTime(0.04,c.currentTime);g.gain.exponentialRampToValueAtTime(0.001,c.currentTime+0.6);o.start();o.stop(c.currentTime+0.6)},
+};
+
+// ===== BUILD NODES =====
+const adminData=[
+  {label:'ADMIN-PC-01',ip:'10.0.0.10',ids:['l1','s1']},
+  {label:'ADMIN-PC-02',ip:'10.0.0.11',ids:['l2','s2']},
+  {label:'ADMIN-PC-03',ip:'10.0.0.12',ids:['l3','s3']}
+];
+for(let i=0;i<3;i++){
+  const n=adminData[i];const c=document.createElement('div');c.className='card admin';
+  c.innerHTML=`<div class="c-hdr"><span class="c-dot healthy" id="dot-admin-${i+1}"></span><span class="c-icon">🖥</span><span class="c-name">${n.label}</span></div><div class="c-meta"><span>LOAD <span class="v" id="${n.ids[0]}-admin-${i+1}">0%</span></span><span>SESS <span class="v" id="${n.ids[1]}-admin-${i+1}">0</span></span></div><div class="c-bar"><div class="f" id="bar-admin-${i+1}"></div></div>`;
+  document.getElementById('admin-col').appendChild(c);
+}
+
+const routerData=[
+  {label:'RTR-01',ip:'10.0.0.1',ids:['r1','b1']},
+  {label:'RTR-02',ip:'10.0.0.2',ids:['r2','b2']},
+  {label:'RTR-03',ip:'10.0.0.3',ids:['r3','b3']}
+];
+for(let i=0;i<3;i++){
+  const n=routerData[i];const c=document.createElement('div');c.className='card router';
+  c.innerHTML=`<div class="c-hdr"><span class="c-dot healthy" id="dot-router-${i+1}"></span><span class="c-icon">◢</span><span class="c-name">${n.label}</span></div><div class="c-meta"><span>RTT <span class="v" id="${n.ids[0]}-router-${i+1}">0ms</span></span><span>BW <span class="v" id="${n.ids[1]}-router-${i+1}">0M</span></span></div><div class="c-bar"><div class="f" id="bar-router-${i+1}"></div></div>`;
+  document.getElementById('router-row').appendChild(c);
+}
+
+const srv=[
+  {label:'DATABASE',icon:'≡',ids:['q1','c1'],id:'db'},
+  {label:'WEB SERVER',icon:'🌐',ids:['q2','c2'],id:'web'},
+  {label:'CACHE',icon:'⚡',ids:['h1','m1'],id:'cache'},
+  {label:'LOAD BALANCER',icon:'↔',ids:['rps','pl'],id:'lb'},
+  {label:'FILE STORAGE',icon:'💾',ids:['io','dk'],id:'storage'}
+];
+for(const n of srv){
+  const c=document.createElement('div');c.className='card server';
+  c.innerHTML=`<div class="c-hdr"><span class="c-dot healthy" id="dot-${n.id}"></span><span class="c-icon">${n.icon}</span><span class="c-name">${n.label}</span></div><div class="c-meta"><span>LOAD <span class="v" id="${n.ids[0]}-${n.id}">0%</span></span><span>CONN <span class="v" id="${n.ids[1]}-${n.id}">0</span></span></div><div class="c-bar"><div class="f" id="bar-${n.id}"></div></div>`;
+  document.getElementById('server-row').appendChild(c);
+}
+
+// ===== DRAG =====
+function makeDraggable(p,t){
+  let d=false,ox,oy;
+  t.addEventListener('mousedown',e=>{
+    if(e.target.tagName==='BUTTON')return;
+    d=true;const r=p.getBoundingClientRect();
+    ox=e.clientX-r.left;oy=e.clientY-r.top;
+    p.style.cursor='grabbing';p.style.position='fixed';
+    p.style.left=r.left+'px';p.style.right='auto';p.style.top=r.top+'px';p.style.bottom='auto';
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove',e=>{if(!d)return;p.style.left=(e.clientX-ox)+'px';p.style.top=(e.clientY-oy)+'px'});
+  document.addEventListener('mouseup',()=>{d=false;p.style.cursor=''});
+}
+makeDraggable(document.getElementById('log-panel'),document.getElementById('log-title'));
+makeDraggable(document.getElementById('term-panel'),document.getElementById('term-title'));
+
+// ===== TERMINAL =====
+const termOut=document.getElementById('term-out');
+const termIn=document.getElementById('term-in');
+const termKeyCount=document.getElementById('term-key-count');
+const floatErr=document.getElementById('float-err');
+let keyPressCount=0,codeIndex=0,greenLogMode=false;
+
+// Boot sequence
+let bootIndex=-1,bootActive=false,bootDone=false;
+const bootOrder=['storage','lb','cache','web'];
+const bootChild={storage:5,lb:4,cache:3,web:2};
+const bootLabel={storage:'FILE STORAGE',lb:'LOAD BALANCER',cache:'CACHE',web:'WEB SERVER'};
+function bootNext(){
+  bootIndex++;
+  if(bootIndex>=bootOrder.length){bootActive=false;bootDone=true;addTermLog('tout','  [SYSTEM] All servers online. Awaiting traffic check...');setTimeout(()=>{const ac=document.querySelectorAll('#admin-col .card');if(ac[2]){ac[2].classList.add('admin-super-glow');Sound.powerOn();addTermLog('tout','  [SYSTEM] Admin-PC-03 → ACTIVE')}},3000);return}
+  const id=bootOrder[bootIndex];
+  const card=document.querySelector(`#server-row .card:nth-child(${bootChild[id]})`);
+  if(card)card.classList.add('server-glow');
+  Sound.powerOn();
+  addTermLog('tout',`  [SYSTEM] ${bootLabel[id]} → ONLINE`);
+  setTimeout(bootNext,1500);
+}
+
+const codes=[
+  'ping 192.168.1.105','nmap 192.168.1.105',
+  'curl http://192.168.1.105','nc 192.168.1.105 80',
+  'nikto -h 192.168.1.105','sqlmap -u http://192.168.1.105',
+  'aircrack cap.cap','proxychains nmap 192.168.1.105',
+  'dig 192.168.1.105','socat 192.168.1.105:80',
+  'enum4linux 192.168.1.105','tshark -i eth0',
+  'openssl enc -in payload.bin','nc -znvw 192.168.1.105',
+  'telnet 192.168.1.105 31337','ssh root@192.168.1.105',
+  'curl -X POST 192.168.1.105','whois 192.168.1.105',
+  'wget http://192.168.1.105','openssl s_client 192.168.1.105',
+  'smbclient 192.168.1.105','john hash.txt',
+  'wpscan 192.168.1.105','python3 exploit.py',
+  'ettercap 192.168.1.105',
+];
+
+function addTermLog(type,text){
+  const l=document.createElement('div');l.className='tl';
+  l.innerHTML=`<span class="${type}">${text}</span>`;
+  termOut.appendChild(l);termOut.scrollTop=termOut.scrollHeight;
+  while(termOut.children.length>20)termOut.removeChild(termOut.firstChild);
+}
+
+// ===== FILE MODAL =====
+const fileModal=document.getElementById('file-modal');
+const fileBody=document.getElementById('file-modal-body');
+
+function showFileModal(content){
+  fileBody.innerHTML=content;
+  fileModal.classList.add('show');
+}
+
+document.getElementById('file-modal-close').addEventListener('click',()=>{
+  fileModal.classList.remove('show');
+});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'&&fileModal.classList.contains('show'))fileModal.classList.remove('show');
+});
+
+termIn.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){
+    e.preventDefault();Sound.blip();
+    const typed=termIn.value.trim();
+    if(typed==='start root access --sync'){
+      termIn.value='';addTermLog('tpre','[SYSTEM] Elevating privileges...');addTermLog('tpre','[SYSTEM] Redirecting to terminal...');
+      setTimeout(()=>{window.location.href='ddos_terminal.html'},1000);return;
+    }
+    if(typed==='boot servers cluster --force'){
+      termIn.value='';addTermLog('tcmd','> boot servers cluster --force');
+      addTermLog('tout','  [SYSTEM] Server boot sequence initiated...');
+      if(!bootActive&&!bootDone){bootActive=true;bootIndex=-1;bootNext()}
+      return;
+    }
+    if(typed==='checkup system force --all'){
+      termIn.value='';
+      if(!bootDone){addTermLog('terr','  ERROR: Boot sequence not complete');return}
+      addTermLog('tcmd','> checkup system force --all');
+      const lastCard=document.querySelector('#server-row .card:last-child');
+      if(lastCard)lastCard.classList.add('server-off');
+      addTermLog('terr','  [CRITICAL] FILE STORAGE node OFFLINE');
+      const adminCards=document.querySelectorAll('#admin-col .card');
+      if(adminCards[2])adminCards[2].classList.add('admin-super-glow');
+      addTermLog('tout','  [SYSTEM] Admin-PC-03 now active');
+      greenLogMode=true;
+      return;
+    }
+    if(typed==='cat flag.txt'){
+      termIn.value='';addTermLog('tcmd','> cat flag.txt');
+      addTermLog('tout','  Reading file...');
+      setTimeout(()=>{
+        showFileModal(`<div class="title-text">📄 /root/flag.txt</div><br/>
+<span class="dim-text"># ===== fsociety ACCESS TOKEN =====</span>
+<span class="keyword">USER</span>     <span class="string">root</span>
+<span class="keyword">HOST</span>     <span class="string">192.168.1.105</span>
+<span class="keyword">TOKEN</span>    <span class="string">fsociety_7X9K2M4P_2026</span>
+<span class="keyword">STATUS</span>   <span class="ok-text">ACTIVE</span>
+<span class="keyword">EXPIRE</span>   <span class="warn-text">2027-01-01</span><br/>
+<span class="dim-text"># ===== CREDENTIALS =====</span>
+<span class="keyword">ADMIN</span>    root / <span class="string">●●●●●●●●●●</span>
+<span class="keyword">DB</span>       admin / <span class="string">●●●●●●●●●●</span><br/>
+<span class="dim-text"># ===== LAST ACCESS =====</span>
+IP        <span class="string">10.0.0.45:49152</span>
+DATE      <span class="string">2026-05-19 03:14:15 UTC</span>`);
+      },400);
+      return;
+    }
+    if(typed==='nano config.conf'){
+      termIn.value='';addTermLog('tcmd','> nano config.conf');
+      addTermLog('tout','  Opening editor...');
+      setTimeout(()=>{
+        showFileModal(`<span class="dim-text">  GNU nano 7.2         config.conf                    Modified</span><br/>
+<span class="line-num">1</span> <span class="keyword">server</span> {
+<span class="line-num">2</span>   <span class="keyword">listen</span>      <span class="string">80</span>;
+<span class="line-num">3</span>   <span class="keyword">server_name</span> <span class="string">fsociety.internal</span>;
+<span class="line-num">4</span>   <span class="keyword">root</span>        <span class="string">/var/www/fsociety</span>;
+<span class="line-num">5</span><br/>
+<span class="line-num">6</span>   <span class="keyword">location</span> <span class="string">/api</span> {
+<span class="line-num">7</span>     <span class="keyword">proxy_pass</span> <span class="string">http://10.0.0.10:8080</span>;
+<span class="line-num">8</span>     <span class="keyword">limit_req</span>  zone=api <span class="string">10r/s</span>;
+<span class="line-num">9</span>   }
+<span class="line-num">10</span><br/>
+<span class="line-num">11</span>   <span class="keyword">location</span> <span class="string">/admin</span> {
+<span class="line-num">12</span>     <span class="keyword">allow</span>     <span class="string">10.0.0.0/24</span>;
+<span class="line-num">13</span>     <span class="keyword">deny</span>      <span class="string">all</span>;
+<span class="line-num">14</span>   }
+<span class="line-num">15</span> }<br/>
+<span class="dim-text">  [ Read 15 lines ]</span>`);
+      },400);
+      return;
+    }
+    if(typed==='rm -rf backup'){
+      termIn.value='';Sound.deleteWarn();addTermLog('tcmd','> rm -rf backup');
+      addTermLog('terr','  WARNING: destructive operation requested');
+      setTimeout(()=>{
+        showFileModal(`<span class="err-text">⚠ DESTRUCTIVE OPERATION</span><br/>
+<span class="warn-text">  Deleting /var/backup/...</span><br/>
+<div class="del-progress"><div class="bar" id="del-bar"></div></div>
+<span class="dim-text" id="del-status">  Initializing...</span>`);
+        let p=0;
+        const bar=document.getElementById('del-bar');
+        const st=document.getElementById('del-status');
+        const msgs=['Erasing files...','Removing directories...','Wiping metadata...','Shredding remnants...','Complete.'];
+        const iv=setInterval(()=>{
+          p+=Math.floor(Math.random()*15+5);
+          if(p>100)p=100;
+          if(bar)bar.style.width=p+'%';
+          if(st)st.textContent='  '+msgs[Math.floor(p/25)]||'  Finishing...';
+          if(p>=100){clearInterval(iv);if(st){st.innerHTML='<span class="ok-text">  ✓ Backup deleted permanently.</span>'}}
+        },300);
+      },400);
+      return;
+    }
+    const cmd=typed||codes[Math.floor(Math.random()*codes.length)];
+    if(cmd){addTermLog('tcmd',`> ${cmd}`);addTermLog('terr','  !! SEGMENTATION FAULT - CORE DUMPED');addTermLog('terr','  !! ILLEGAL INSTRUCTION AT 0x7fff2c3a');addTermLog('twarn','  !! MEMORY CORRUPTION DETECTED');addTermLog('terr','  !! KERNEL PANIC - SYSTEM HALTED')}
+    termIn.value='';floatErr.style.display='block';setTimeout(()=>{floatErr.style.display='none'},2000);return;
+  }
+  if(['Shift','Control','Alt','Meta','CapsLock','Tab','Escape','Backspace','Delete','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Home','End','PageUp','PageDown','Insert'].includes(e.key))return;
+  keyPressCount++;termKeyCount.textContent=`KEYS: ${keyPressCount}`;
+  const code=codes[codeIndex%codes.length];codeIndex++;
+  addTermLog('tcmd',`> ${code}`);
+  const r=Math.random();
+  if(r<0.3)addTermLog('tout',`  OK (${Math.floor(Math.random()*2000)}ms)`);
+  else if(r<0.5)addTermLog('twarn',`  Connection timeout - retry ${Math.floor(Math.random()*3)+1}/3`);
+  else if(r<0.65)addTermLog('tout',`  [${Math.random().toString(36).substring(2,10)}] token issued`);
+  else if(r<0.75)addTermLog('terr',`  Error: ${Math.floor(Math.random()*255)} - ${['Access denied','Not found','Forbidden','Method not allowed'][Math.floor(Math.random()*4)]}`);
+  else if(r<0.85)addTermLog('tout',`  ${Math.floor(Math.random()*1024+64)} bytes received`);
+  else addTermLog('tpre',`  [PROXY] routing through ${Math.floor(Math.random()*5)+2} nodes`);
+  if(keyPressCount%5===0)addTermLog('twarn','  [RATE-LIMIT] Cooling down...');
+  if(keyPressCount%10===0){addTermLog('terr','  !! BUFFER OVERFLOW DETECTED');addTermLog('terr','  !! Stack smashing detected - aborting')}
+});
+document.addEventListener('click',()=>{if(termOut.offsetParent!==null)termIn.focus()});
+
+// ===== LOG VIEWER =====
+const logOut=document.getElementById('log-out');
+const logPkts=document.getElementById('log-pkts');
+const targetIP='192.168.1.105';
+let packetsSent=0,startTime=Date.now();
+
+const botIPs=['45.33.32.156','185.220.101.28','91.121.86.156','51.75.145.238','192.168.1.45','10.0.0.12','172.16.0.88','89.45.67.123','203.0.113.42','198.51.100.73','104.28.7.15','31.13.24.9','78.46.89.142','176.9.41.187','144.76.60.214','5.9.158.75','192.168.1.78','10.0.0.34','172.16.0.12','89.45.67.200'];
+function rIP(){return botIPs[Math.floor(Math.random()*botIPs.length)]}
+function rPt(){return Math.floor(Math.random()*65535)}
+function rB(){return[64,128,256,512,1024,1500,2048,4096][Math.floor(Math.random()*8)]}
+function pad(n){return String(n).padStart(2,'0')}
+function ts(){const n=new Date();return`${pad(n.getHours())}:${pad(n.getMinutes())}:${pad(n.getSeconds())}.${String(n.getMilliseconds()).padStart(3,'0')}`}
+function fmt(n){if(n>=1e6)return(n/1e6).toFixed(2)+'M';if(n>=1e3)return(n/1e3).toFixed(1)+'K';return n+''}
+
+function addLog(parts){
+  const l=document.createElement('div');l.className='ll';
+  let html=`<span class="t">[${ts()}]</span> `;
+  for(const p of parts)html+=`<span class="${p[0]}">${p[1]}</span>`;
+  l.innerHTML=html;logOut.appendChild(l);logOut.scrollTop=logOut.scrollHeight;
+  while(logOut.children.length>80)logOut.removeChild(logOut.firstChild);
+}
+
+const msgs={info:['Initializing packet flood engine...','Connection established with target','SYN packet sent...','ACK received, handshake complete','Spoofing source IP...','Bypassing firewall rules...','Evading IDS/IPS detection...','Injecting malicious payload...','Fragmenting packets...','Rotating source ports...','Loading attack module...','Encrypting communication channel...'],warn:['WARNING: Packet loss detected','WARNING: Rate limiting in effect','WARNING: Firewall rules updated','WARNING: High latency on node','WARNING: Connection reset by peer','WARNING: TTL exceeded, rerouting...'],error:['ERROR: Connection timeout','ERROR: Target reset connection','ERROR: Invalid packet sequence','ERROR: RST received, reconnecting...','ERROR: SYN-ACK mismatch'],success:['SUCCESS: Target firewall breached','SUCCESS: Backdoor established','SUCCESS: Payload delivered','SUCCESS: Node compromised','SUCCESS: Botnet node activated'],system:['>> SYSTEM: Memory utilization at {n}%','>> SYSTEM: CPU load: {n}%','>> SYSTEM: Network buffer: {n} MB']};
+
+function genPkt(){
+  const bot=rIP(),sp=rPt(),dp=[80,443,8080,22,3389][Math.floor(Math.random()*5)];
+  const s=rB(),seq=Math.floor(Math.random()*4294967295),ack=Math.floor(Math.random()*4294967295);
+  const proto=['TCP','UDP','ICMP','HTTP','HTTPS','SYN','ACK','PSH','RST'][Math.floor(Math.random()*9)];
+  const flag=['SYN','SYN-ACK','ACK','PSH-ACK','FIN','RST'][Math.floor(Math.random()*6)];
+  const t=[[['ip-addr',bot],['port',':'+sp],['dim',' -> '],['ip-addr',targetIP],['port',':'+dp],['dim',' ['+proto+']'],['packet',' SEQ:'+seq+' ACK:'+ack],['dim',' SIZE:'+s+'B'],['warn',' ['+flag+']']],[['ip-addr',bot],['port',':'+sp],['dim',' -> '],['ip-addr',targetIP],['port',':'+dp],['dim',' ['+proto+']'],['packet',' PSH:'+(Math.random()>0.5?1:0)+' URG:'+(Math.random()>0.7?1:0)],['dim',' WIN:'+Math.floor(Math.random()*65535)]],[['ip-addr',rIP()],['port',':'+rPt()],['dim',' <- '],['ip-addr',targetIP],['port',':80'],['dim',' [TCP]'],['info',' RST received']],[['dim','[PROXY] '],['ip-addr',bot],['dim',' -> '],['ip-addr',rIP()],['dim',' -> '],['ip-addr',targetIP],['dim',' routed ('+(Math.floor(Math.random()*10+1)+' hops)')]]];
+  addLog(t[Math.floor(Math.random()*t.length)]);
+}
+const greenMsgs=[
+  '[OK] Health check passed on all nodes',
+  '[OK] 192.168.1.105 latency 12ms',
+  '[OK] Bandwidth nominal at 847 Mbps',
+  '[OK] No packet loss detected',
+  '[OK] Database replication synchronized',
+  '[OK] Cache hit ratio: 94.2%',
+  '[OK] Load balancer distribution: even',
+  '[OK] Storage cluster: all healthy',
+  '[OK] Uptime: 14d 7h 32m',
+  '[OK] Firewall rules: no blocks',
+  '[OK] SSL certificates valid for 87d',
+  '[OK] Backup integrity verified',
+  '[OK] Admin-PC-03 heartbeat stable',
+  '[OK] All services operational',
+  '[OK] Routing table: consistent',
+  '[OK] DNS resolution: 2ms',
+  '[OK] Connection pool: 45/100 used',
+  '[OK] Memory: 62% free',
+  '[OK] CPU: 23% utilization',
+  '[OK] Disk I/O within thresholds',
+];
+
+function genLine(){
+  if(greenLogMode){
+    addLog([['green',greenMsgs[Math.floor(Math.random()*greenMsgs.length)]]]);
+    return;
+  }
+  const r=Math.random();
+  if(r<.15)addLog([['warn',msgs.warn[Math.floor(Math.random()*msgs.warn.length)]]]);
+  else if(r<.25)addLog([['error',msgs.error[Math.floor(Math.random()*msgs.error.length)]]]);
+  else if(r<.35)addLog([['info',msgs.info[Math.floor(Math.random()*msgs.info.length)]]]);
+  else if(r<.40)addLog([['success',msgs.success[Math.floor(Math.random()*msgs.success.length)]]]);
+  else if(r<.45)addLog([['system','>> SYSTEM: Memory: '+(Math.floor(Math.random()*30+60))+'%']]);
+  else if(r<.48){const m=msgs.system[Math.floor(Math.random()*msgs.system.length)];addLog([['system','>> SYSTEM: '+m.replace('{n}',Math.floor(Math.random()*40+10))]])}
+  else if(r<.52)addLog([['success','[BOTNET] '+(Math.floor(Math.random()*5+1))+' new node(s)']]);
+  else if(r<.55)addLog([['highlight','>>> INCOMING CONNECTION from '],['ip-addr',rIP()],['highlight',' on port '+rPt()]]);
+  else if(r<.58)addLog([['dim','[HEARTBEAT] '+rIP()+' : OK (RTT: '+(Math.floor(Math.random()*200+10))+'ms)']]);
+  else genPkt();
+}
+
+// ===== NODE UPDATES =====
+function updateNodes(){
+  const e=Math.floor((Date.now()-startTime)/1000);
+  const h=Math.floor(e/3600),m=Math.floor((e%3600)/60),s=e%60;
+  for(let i=1;i<=3;i++){
+    const el=id=>document.getElementById(id);
+    const r=Math.random();let status,load;
+    if(r<.85){status='healthy';load=Math.floor(Math.random()*40+5)}
+    else if(r<.95){status='warning';load=Math.floor(Math.random()*25+55)}
+    else{status='critical';load=Math.floor(Math.random()*15+85)}
+    el('dot-admin-'+i).className='c-dot '+status;el('bar-admin-'+i).style.width=load+'%';
+    el('l'+i+'-admin-'+i).textContent=load+'%';el('l'+i+'-admin-'+i).className='v '+status;
+    el('s'+i+'-admin-'+i).textContent=Math.floor(Math.random()*8+1);
+  }
+  for(let i=1;i<=3;i++){
+    const el=id=>document.getElementById(id);
+    const r=Math.random();let status,load;
+    if(r<.85){status='healthy';load=Math.floor(Math.random()*40+5)}
+    else if(r<.95){status='warning';load=Math.floor(Math.random()*25+55)}
+    else{status='critical';load=Math.floor(Math.random()*15+85)}
+    el('dot-router-'+i).className='c-dot '+status;el('bar-router-'+i).style.width=load+'%';
+    el('r'+i+'-router-'+i).textContent=Math.floor(Math.random()*50+5)+'ms';
+    el('b'+i+'-router-'+i).textContent=(Math.random()*900+100).toFixed(0)+'M';
+  }
+  const srvs=['db','web','cache','lb','storage'];
+  for(const id of srvs){
+    const el=id=>document.getElementById(id);
+    const r=Math.random();let status,load;
+    if(r<.85){status='healthy';load=Math.floor(Math.random()*40+5)}
+    else if(r<.95){status='warning';load=Math.floor(Math.random()*25+55)}
+    else{status='critical';load=Math.floor(Math.random()*15+85)}
+    el('dot-'+id).className='c-dot '+status;el('bar-'+id).style.width=load+'%';
+    const map={'db':['q1','c1'],'web':['q2','c2'],'cache':['h1','m1'],'lb':['rps','pl'],'storage':['io','dk']};
+    const ids=map[id];
+    if(id==='db'){el(ids[0]+'-db').textContent=fmt(Math.floor(Math.random()*50000+5000));el(ids[1]+'-db').textContent=Math.floor(Math.random()*100+10)}
+    else if(id==='web'){el(ids[0]+'-web').textContent=fmt(Math.floor(Math.random()*100000+10000));el(ids[1]+'-web').textContent=Math.floor(Math.random()*200+20)}
+    else if(id==='cache'){const hr=status==='healthy'?Math.floor(Math.random()*15+80):(status==='warning'?Math.floor(Math.random()*20+50):Math.floor(Math.random()*20+20));el(ids[0]+'-cache').textContent=hr+'%';el(ids[0]+'-cache').className='v '+status;el(ids[1]+'-cache').textContent=Math.floor(Math.random()*4000+500)+'M'}
+    else if(id==='lb'){el(ids[0]+'-lb').textContent=Math.floor(Math.random()*5000+500);el(ids[1]+'-lb').textContent=status==='critical'?'1/3':'3/3';el(ids[1]+'-lb').className='v '+(status==='critical'?'bad':'good')}
+    else if(id==='storage'){el(ids[0]+'-storage').textContent=fmt(Math.floor(Math.random()*15000+1000));const u=Math.floor(Math.random()*400+100);const t=u+Math.floor(Math.random()*200+50);el(ids[1]+'-storage').textContent=u+'/'+t+'G'}
+  }
+}
+
+// ===== INIT =====
+addLog([['highlight','==============================================']]);
+addLog([['highlight','  fsociety INFRASTRUCTURE MONITOR ACTIVE']]);
+addLog([['highlight','==============================================']]);
+addLog([['info','Loading network topology...']]);
+addLog([['success','11 nodes being monitored']]);
+addLog([['success','Real-time telemetry active']]);
+addLog([['warn','Target: 192.168.1.105 - DDoS in progress']]);
+addLog([['highlight','----------------------------------------------']]);
+
+setInterval(genLine,250);
+setInterval(()=>{packetsSent+=Math.floor(Math.random()*30+5);logPkts.textContent=`PACKETS: ${fmt(packetsSent)}`},1000);
+setInterval(updateNodes,2000);
+</script>
+
+</body>
+</html>
